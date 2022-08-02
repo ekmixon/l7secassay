@@ -133,50 +133,41 @@ homoglyphicmapping = {"'" : '%ca%bc'}
 
 def oururlparse(target):
     log = logging.getLogger('urlparser')
-    ssl = False
-    o = urlparse(target)    
+    o = urlparse(target)
     if o[0] not in ['http','https','']:
-        log.error('scheme %s not supported' % o[0])
+        log.error(f'scheme {o[0]} not supported')
         return
-    if o[0] == 'https':
-        ssl = True
-    if len(o[2]) > 0:
-        path = o[2]
-    else:
-        path = '/'
+    ssl = o[0] == 'https'
+    path = o[2] if len(o[2]) > 0 else '/'
     tmp = o[1].split(':')
-    if len(tmp) > 1:
-        port = tmp[1]
-    else:
-        port = None
+    port = tmp[1] if len(tmp) > 1 else None
     hostname = tmp[0]
     query = o[4]
     return (hostname,port,path,query,ssl)
     
 def modifyurl(path,modfunc,log):
     path = path
-    log.debug('path is currently %s' % path)
+    log.debug(f'path is currently {path}')
     #s = re.search('(\[.*?\])',path)
     for m in re.findall('(\[.*?\])',path):
         ourstr = m[1:-1]
         newstr = modfunc(ourstr)
-        log.debug('String was %s' % ourstr)
-        log.debug('String became %s' % newstr)
+        log.debug(f'String was {ourstr}')
+        log.debug(f'String became {newstr}')
         path = path.replace(m,newstr)
-    log.debug('the path is now %s' % path)
+    log.debug(f'the path is now {path}')
     return path
 
-def modifypath(path,newstrs,log,encode=True):    
-    log.debug('path is currently %s' % path)
+def modifypath(path,newstrs,log,encode=True):
+    log.debug(f'path is currently {path}')
     for m in re.findall('(\[.*?\])',path):
         ourstr = m[1:-1]
         for newstr in newstrs:
             if encode:
                 newstr= urllib.quote(newstr)
-            log.debug('String was %s' % ourstr)
-            log.debug('String became %s' % newstr)
-            newpath = path.replace(m,newstr).replace(']','').replace('[','')
-            yield(newpath)
+            log.debug(f'String was {ourstr}')
+            log.debug(f'String became {newstr}')
+            yield path.replace(m,newstr).replace(']','').replace('[','')
 
 def bruteforceascii(ourstr):
     listourstr = list(ourstr)
@@ -203,8 +194,7 @@ def nullify(ourstr):
     return quote(newstr)
 
 def replacechars(ourstr,origchar,newchar):
-    newstr = ourstr.replace(origchar,newchar)    
-    return newstr
+    return ourstr.replace(origchar,newchar)
 
 def nullifyspaces(ourstr):
     return quote(replacechars(ourstr,' ','\x00'))
@@ -231,19 +221,16 @@ class waftoolsengine:
         """
         self.target = target
         if port is None:
-            if ssl:
-                port = 443
-            else:
-                port = 80
+            port = 443 if ssl else 80
         self.port = port
-        self.ssl = ssl        
+        self.ssl = ssl
         self.debuglevel=debuglevel
-        self.cachedresponses = dict()
+        self.cachedresponses = {}
         self.requestnumber = 0
         self.path = path
         self.redirectno = 0
         self.followredirect = followredirect
-        self.crawlpaths = list()
+        self.crawlpaths = []
 
     def request(self,method='GET',path=None,usecache=True,
                 cacheresponse=True, headers=None,
@@ -263,37 +250,37 @@ class waftoolsengine:
         else:
             knownheaders = {}
             headers = {}
-        if not 'user-agent' in knownheaders:
+        if 'user-agent' not in knownheaders:
             headers['User-Agent'] = 'Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.5; en-US; rv:1.9.1b1) Gecko/20081007 Firefox/3.0'
-        if not 'accept-charset' in knownheaders:
+        if 'accept-charset' not in knownheaders:
             headers['Accept-Charset'] = 'ISO-8859-1,utf-8;q=0.7,*;q=0.7'
-        if not 'accept' in knownheaders:
+        if 'accept' not in knownheaders:
             headers['Accept'] = '*/*'
         k = str([method,path,headers])
-        if usecache:                
+        if usecache:        
             if self.cachedresponses.has_key(k):
-                self.log.debug('Using cached version of %s, %s' % (method,path))
+                self.log.debug(f'Using cached version of {method}, {path}')
                 return self.cachedresponses[k]
             else:
-                self.log.debug('%s not found in %s' % (k,self.cachedresponses.keys()))
+                self.log.debug(f'{k} not found in {self.cachedresponses.keys()}')
         if sys.hexversion > 0x2060000:
-            if self.ssl:
-                h = httplib.HTTPSConnection(self.target,self.port,timeout=4)
-            else:
-                h = httplib.HTTPConnection(self.target,self.port,timeout=4)
+            h = (
+                httplib.HTTPSConnection(self.target, self.port, timeout=4)
+                if self.ssl
+                else httplib.HTTPConnection(self.target, self.port, timeout=4)
+            )
+
+        elif self.ssl:
+            h = httplib.HTTPSConnection(self.target,self.port)
         else:
-            if self.ssl:
-                h = httplib.HTTPSConnection(self.target,self.port)
-            else:
-                h = httplib.HTTPConnection(self.target,self.port)
-        if self.debuglevel <= 10:
-            if self.debuglevel > 1:
-                h.set_debuglevel(self.debuglevel)
+            h = httplib.HTTPConnection(self.target,self.port)
+        if self.debuglevel <= 10 and self.debuglevel > 1:
+            h.set_debuglevel(self.debuglevel)
         try:
-            self.log.info('Sending %s %s' % (method,path))
+            self.log.info(f'Sending {method} {path}')
             h.request(method,path,headers=headers)
         except socket.error:
-            self.log.warn('Could not initialize connection to %s' % self.target)
+            self.log.warn(f'Could not initialize connection to {self.target}')
             return
         self.requestnumber += 1
         try:
@@ -306,42 +293,44 @@ class waftoolsengine:
             r = None
         if cacheresponse:
             self.cachedresponses[k] = r
-        if r:
-            if response.status in [301,302,307]:                
-                if followredirect:                    
-                    if response.getheader('location'):                        
-                        newloc = response.getheader('location')                                            
-                        self.log.info('Redirected to %s' % newloc)                    
-                        pret = oururlparse(newloc)
-                        if pret is not None:
-                            (target,port,path,query,ssl) = pret                            
-                            if not port: port = 80
-                            if target == '':
-                                target = self.target
-                            if port is None:
-                                port = self.port
-                            if not path.startswith('/'):
-                                path = '/'+path
-                            if (target,port,ssl) == (self.target,self.port,ssl):
-                                r = self.request(method,path,usecache,cacheresponse,
-                                             headers,comingfromredir=True)
-                            else:                                
-                                self.log.warn('Tried to redirect to a different server %s' % newloc)
-                        else:
-                            self.log.warn('%s is not a well formatted url' % response.getheader('location'))
+        if (
+            r
+            and response.status in [301, 302, 307]
+            and followredirect
+            and response.getheader('location')
+        ):
+            newloc = response.getheader('location')
+            self.log.info(f'Redirected to {newloc}')
+            pret = oururlparse(newloc)
+            if pret is not None:
+                (target,port,path,query,ssl) = pret
+                if not port: port = 80
+                if target == '':
+                    target = self.target
+                if port is None:
+                    port = self.port
+                if not path.startswith('/'):
+                    path = f'/{path}'
+                if (target,port,ssl) == (self.target,self.port,ssl):
+                    r = self.request(method,path,usecache,cacheresponse,
+                                 headers,comingfromredir=True)
+                else:                
+                    self.log.warn(f'Tried to redirect to a different server {newloc}')
+            else:
+                self.log.warn(f"{response.getheader('location')} is not a well formatted url")
         return r
 
 
     def querycrawler(self,path=None,curdepth=0,maxdepth=1):
-        self.log.debug('Crawler is visiting %s' % path)
-        localcrawlpaths = list()        
+        self.log.debug(f'Crawler is visiting {path}')
+        localcrawlpaths = []
         if curdepth > maxdepth:
-            self.log.info('maximum depth %s reached' % maxdepth)
+            self.log.info(f'maximum depth {maxdepth} reached')
             return
         r = self.request(path=path)
         if r is None:
             return
-        response, responsebody = r                
+        response, responsebody = r
         try:
             soup=BeautifulSoup(responsebody)
         except:
@@ -352,32 +341,33 @@ class waftoolsengine:
             try:
                 href = tag["href"]
                 if href is not None:
-                    tmpu = urlparse(href)                    
+                    tmpu = urlparse(href)
                     if (tmpu[1] != '') and (self.target != tmpu[1]):
                         # not on the same domain name .. ignore
-                        self.log.debug('Ignoring link because it is not on the same site %s' % href)
+                        self.log.debug(f'Ignoring link because it is not on the same site {href}')
                         continue
                     if tmpu[0] not in ['http','https','']:
-                        self.log.debug('Ignoring link because it is not an http uri %s' % href)
+                        self.log.debug(f'Ignoring link because it is not an http uri {href}')
                         continue
                     path = tmpu[2]
                     if not path.startswith('/'):
-                        path = '/'+path
+                        path = f'/{path}'
                     if len(tmpu[4]) > 0:
                         # found a query .. thats all we need                                                
                         location = urlunparse(('','',path,tmpu[3],tmpu[4],''))
-                        self.log.info('Found query %s' % location)
-                        return href                    
+                        self.log.info(f'Found query {location}')
+                        return href
                     if path not in self.crawlpaths:
                         href = urllib.unquote(path)
-                        self.log.debug('adding %s for crawling' % href)
+                        self.log.debug(f'adding {href} for crawling')
                         self.crawlpaths.append(href)
                         localcrawlpaths.append(href)
             except KeyError:
                 pass
-        for nextpath in localcrawlpaths:            
-            r = self.querycrawler(path=nextpath,curdepth=curdepth+1,maxdepth=maxdepth)
-            if r:
+        for nextpath in localcrawlpaths:    
+            if r := self.querycrawler(
+                path=nextpath, curdepth=curdepth + 1, maxdepth=maxdepth
+            ):
                 return r
 
 
@@ -387,8 +377,5 @@ def scrambledheader(header):
         return False
     if header == c:
         return False
-    for character in c:
-        if c.count(character) != header.count(character):
-            return False
-    return True
+    return all(c.count(character) == header.count(character) for character in c)
 

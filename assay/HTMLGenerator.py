@@ -50,7 +50,7 @@ class HTMLGenerator():
         self.html += self.HTML_HEAD_CLOSE
         self.html += self.HTML_BODY_OPEN
         self.html += "<h1 class=\"logo\"><a href='#'><img src='logo.png' alt='Image' /></a></h1>"
-        self.html += "<p>%s%s</p>" % (self.text1, targeturl)
+        self.html += f"<p>{self.text1}{targeturl}</p>"
         self.t = HTML.Table(header_row=['Status', 'Category', 'Attack Vector', 'Target'],
                             attribs={'class':'formtable'})
 
@@ -126,21 +126,19 @@ class HTMLGenerator():
 
     def saveHTML(self, fhandle="", keyval={}):
         fhandle = fhandle
-        f = open(fhandle, 'w')
+        with open(fhandle, 'w') as f:
+            self.html += str(self.t)
+            self.html += self.generateHtmlStats(keyval=keyval)
 
-        self.html += str(self.t)
-        self.html += self.generateHtmlStats(keyval=keyval)
+            if genGraphs():
+                self.html += "<div><pre>"
+                self.html += self.genGraphs(keyval=keyval)
+                self.html += "</pre></div>"
+            self.html += "<br />"
+            self.html += self.HTML_BODY_CLOSE
+            self.html += self.HTML_CLOSE
 
-        if genGraphs():
-            self.html += "<div><pre>"
-            self.html += self.genGraphs(keyval=keyval)
-            self.html += "</pre></div>"
-        self.html += "<br />"
-        self.html += self.HTML_BODY_CLOSE
-        self.html += self.HTML_CLOSE
-
-        # make it purty :-)
-        soup = bs(self.html.encode('utf-8'), indentWidth='    ')
-        prettyHTML = soup.prettify()
-        f.write(prettyHTML)
-        f.close()
+            # make it purty :-)
+            soup = bs(self.html.encode('utf-8'), indentWidth='    ')
+            prettyHTML = soup.prettify()
+            f.write(prettyHTML)

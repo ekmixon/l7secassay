@@ -63,6 +63,7 @@ def attackOutPut(n, status, s):
     before the tor statement (if there is one)
 '''
 
+
 print
 stepOne = 5
 attackOutPut(stepOne, "info", "Bayshore Networks, Inc. - assay [DVWA Web App Attack]")
@@ -79,11 +80,8 @@ tor_exe = which('tor')
 anonFName = ".anon"
 astr = 0
 if os.path.isfile(anonFName):
-    fo = open(anonFName, "r")
-    astr = int(fo.read(1));
-    # close opened file
-    fo.close()
-
+    with open(anonFName, "r") as fo:
+        astr = int(fo.read(1));
 '''
     only enter if we have a tor executable
     to play with
@@ -101,21 +99,21 @@ if tor_exe and astr == 1:
         ''' based on https://gist.github.com/3962751 '''
         def createTorPassword(secret = ""):
             ind = chr(96)
-            
+
             # for salt
             rng = os.urandom
             # generate salt and append indicator value so that it
-            salt = "%s%s" % (rng(8), ind)
-            
+            salt = f"{rng(8)}{ind}"
+
             prefix = '16:'
             c = ord(salt[8])
-            
+
             EXPBIAS = 6
             count = (16+(c&15)) << ((c>>4) + EXPBIAS)
-            
+
             d = hashlib.sha1()
             tmp = salt[:8]+secret
-            
+
             '''
                 hash the salty password as many times as the length of
                 the password divides into the count value
@@ -133,7 +131,7 @@ if tor_exe and astr == 1:
             salt = binascii.b2a_hex(salt[:8]).upper()
             ind = binascii.b2a_hex(ind)
             torhash = binascii.b2a_hex(hashed).upper()
-            
+
             return prefix + salt + ind + torhash
         
         # create tor process here
@@ -347,12 +345,10 @@ class OpenerDirector(_urllib2_fork.OpenerDirector):
                 lookup[scheme] = handlers
         for scheme, lookup in handle_error.iteritems():
             for code, handlers in lookup.iteritems():
-                handlers = list(handlers)
-                handlers.sort()
+                handlers = sorted(handlers)
                 lookup[code] = handlers
         for scheme, handlers in handle_open.iteritems():
-            handlers = list(handlers)
-            handlers.sort()
+            handlers = sorted(handlers)
             handle_open[scheme] = handlers
 
         # cache the indexes
@@ -390,12 +386,10 @@ class OpenerDirector(_urllib2_fork.OpenerDirector):
         #   of the request?
         request_processors = set(self.process_request.get(req_scheme, []))
         request_processors.update(self._any_request)
-        request_processors = list(request_processors)
-        request_processors.sort()
+        request_processors = sorted(request_processors)
         for processor in request_processors:
-            for meth_name in ["any_request", req_scheme+"_request"]:
-                meth = getattr(processor, meth_name, None)
-                if meth:
+            for meth_name in ["any_request", f"{req_scheme}_request"]:
+                if meth := getattr(processor, meth_name, None):
                     req = meth(req)
 
         # In Python >= 2.4, .open() supports processors already, so we must
@@ -406,12 +400,10 @@ class OpenerDirector(_urllib2_fork.OpenerDirector):
         # post-process response
         response_processors = set(self.process_response.get(req_scheme, []))
         response_processors.update(self._any_response)
-        response_processors = list(response_processors)
-        response_processors.sort()
+        response_processors = sorted(response_processors)
         for processor in response_processors:
-            for meth_name in ["any_response", req_scheme+"_response"]:
-                meth = getattr(processor, meth_name, None)
-                if meth:
+            for meth_name in ["any_response", f"{req_scheme}_response"]:
+                if meth := getattr(processor, meth_name, None):
                     response = meth(req, response)
 
         return response
@@ -421,16 +413,15 @@ class OpenerDirector(_urllib2_fork.OpenerDirector):
             # XXX http[s] protocols are special-cased
             dict = self.handle_error['http'] # https is not different than http
             proto = args[2]  # YUCK!
-            meth_name = 'http_error_%s' % proto
+            meth_name = f'http_error_{proto}'
             http_err = 1
             orig_args = args
         else:
             dict = self.handle_error
-            meth_name = proto + '_error'
+            meth_name = f'{proto}_error'
             http_err = 0
         args = (dict, proto, meth_name) + args
-        result = apply(self._call_chain, args)
-        if result:
+        if result := apply(self._call_chain, args):
             return result
 
         if http_err:

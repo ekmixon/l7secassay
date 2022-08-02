@@ -18,6 +18,7 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
+
 import base64
 
 # vars you need to manage
@@ -40,7 +41,7 @@ waf_response_codes = [500]
 '''
 yourdomain = "yourdomain.tld"
 exthost = "host"
-exturl = "http://%s.%s/" % (exthost,yourdomain)
+exturl = f"http://{exthost}.{yourdomain}/"
 extpath = "e4589efff654d91e26b43333dbf41425/"
 extresource = "youshouldnotbehere.php"
 
@@ -54,17 +55,17 @@ apppath = ""
 loginpage = "login.php"
 loginbypass = "login2.php"
 slash = "/"
-targetpath = "vulnerabilities%s" % slash
-malwarepath = "malware%s" % slash
-staticpath = "static%s" % slash
-htmlpath = "html%s" % slash
-hackableuploadpath = "hackable%suploads%s" % (slash, slash)
-stored_exploitpath = "stored_exploits%s" % slash
-backdoors_path = "%sbackdoor%s" % (stored_exploitpath, slash)
-sqlinjection_path = "sql-injection%s" % slash
-xss_path = "xss%s" % slash
-anti_sqli = "anti_sqli%s" % slash
-anti_xss = "anti_xss%s" % slash
+targetpath = f"vulnerabilities{slash}"
+malwarepath = f"malware{slash}"
+staticpath = f"static{slash}"
+htmlpath = f"html{slash}"
+hackableuploadpath = f"hackable{slash}uploads{slash}"
+stored_exploitpath = f"stored_exploits{slash}"
+backdoors_path = f"{stored_exploitpath}backdoor{slash}"
+sqlinjection_path = f"sql-injection{slash}"
+xss_path = f"xss{slash}"
+anti_sqli = f"anti_sqli{slash}"
+anti_xss = f"anti_xss{slash}"
 htmlfilename = "waf_"
 htmlfileext = ".html"
 successfulVectors = 0
@@ -133,9 +134,9 @@ def getStaticPath():
     return staticpath
 
 def getUrl():
-    targ = targetproto + "://" + targetfqdn
+    targ = f"{targetproto}://{targetfqdn}"
     if targetport != 80:
-        targ += ":" + str(targetport)
+        targ += f":{str(targetport)}"
     targ += "/"
     return targ
 

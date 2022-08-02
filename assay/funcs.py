@@ -45,7 +45,7 @@ stepSix = 25
 
 def createRandAlpha(length=0):
     ''' create random alpha strings '''
-    return ''.join(choice(letters) for x in xrange(length or randint(10, 30)))
+    return ''.join(choice(letters) for _ in xrange(length or randint(10, 30)))
 
 """
     Simply prints out an opening banner for the prog
@@ -54,8 +54,8 @@ def printBanner(loginpage, user):
     #attackOutPut(stepOne, "info", "Bayshore Networks, Inc. - assay [DVWA Web App Attack]")
     #attackOutPut(stepOne, "info", "-------------------------------------")
     print
-    attackOutPut(stepOne, "info", "Target: %s" % loginpage)
-    attackOutPut(stepOne, "info", "Target User: %s" % user)
+    attackOutPut(stepOne, "info", f"Target: {loginpage}")
+    attackOutPut(stepOne, "info", f"Target User: {user}")
     print
 # EOF
 
@@ -112,7 +112,6 @@ def doLogin(targetloginpage):
 def getLoginFormVals(val):
     #print val
     d = {}
-    dd = {}
     # this regex should detect the textcontrol (hopefully username)
     # and passwordcontrol fields of the form to be attacked
     reg = re.compile(r"<(\w*Control)\((\w*)=[\)(\w:\/.)]*[\>\s]", re.MULTILINE)
@@ -126,19 +125,12 @@ def getLoginFormVals(val):
     # this regex should detect any hidden html fields in the target form
     hiddenreg = re.compile(r"<(HiddenControl)\((\w*)=([\w:\/.]*)", re.MULTILINE)
     matches = [m.groups() for m in hiddenreg.finditer(val)]
-    for m in matches:
-        dd[m[1]] = m[2]
-    # if any hidden fields were detected then
-    # populate dictionary d with dd
-    if dd:
+    if dd := {m[1]: m[2] for m in matches}:
         d['HiddenControl'] = dd
-    # only return the dict if both a textcontrol (for username)
-    # and password control has been discovered
-    if d:
-        if 'PasswordControl' in d and 'TextControl' in d:
-            return d
-    else:
+    if not d:
         return None
+    if 'PasswordControl' in d and 'TextControl' in d:
+        return d
 # EOF
 
 """
@@ -331,7 +323,6 @@ def doFormDiscovery(fp, target):
 def getFormVals(val):
     #print val
     d = {}
-    dd = {}
     # this regex should detect the controls of the form to be attacked
     reg = re.compile(r"<(\w*Control)\((\w*)=[<\)(\w:\/.)]*[\>\s]", re.MULTILINE)
     matches = [m.groups() for m in reg.finditer(val)]
@@ -346,19 +337,11 @@ def getFormVals(val):
     # this regex should detect any hidden html fields in the target form
     hiddenreg = re.compile(r"<(HiddenControl)\((\w*)=([\w:\/.]*)", re.MULTILINE)
     matches = [m.groups() for m in hiddenreg.finditer(val)]
-    for m in matches:
-        dd[m[1]] = m[2]
-    # if any hidden fields were detected then
-    # populate dictionary d with dd
-    if dd:
+    if dd := {m[1]: m[2] for m in matches}:
         d['HiddenControl'] = dd
     # only return the dict if both a textcontrol (for username)
     # and password control has been discovered
-    if d:
-        #if 'PasswordControl' in d and 'TextControl' in d:
-        return d
-    else:
-        return None
+    return d or None
 # EOF
 
 """
@@ -496,29 +479,29 @@ def printStats():
 """
 def printResults(successfulattacks=[], url=''):
     if len(successfulattacks) >= 1:
-        attackOutPut(stepOne, "info", "The following attack vectors were successful against %s" % url)
+        attackOutPut(
+            stepOne,
+            "info",
+            f"The following attack vectors were successful against {url}",
+        )
+
         for k,v in successfulattacks.items():
             if type(vars.typedesc[k][2]) is str:
-                outstr = "This application has failed tests covering %s, Category: %s" % (vars.typedesc[k][2], vars.typedesc[k][0])
+                outstr = f"This application has failed tests covering {vars.typedesc[k][2]}, Category: {vars.typedesc[k][0]}"
+
             if type(vars.typedesc[k][2]) is list:
                 outstr = "This application has failed tests covering "
-                cnt = 1
-
-                for s in vars.typedesc[k][2]:
-                    if cnt == len(vars.typedesc[k][2]):
-                        outstr += s
-                    else:
-                        outstr += s + ", and "
-                    cnt += 1
-                outstr += ", Category: %s" % vars.typedesc[k][0]
+                for cnt, s in enumerate(vars.typedesc[k][2], start=1):
+                    outstr += s if cnt == len(vars.typedesc[k][2]) else f"{s}, and "
+                outstr += f", Category: {vars.typedesc[k][0]}"
 
             attackOutPut(stepTwo, "discovered", outstr)
             for val in v:
-                attackOutPut(stepThree, "discovered", "%s" % val)
+                attackOutPut(stepThree, "discovered", f"{val}")
     else:
         failed = """All attack vectors have FAILED,
         the current protective measures are 100% effective!"""
-        attackOutPut(stepOne, "info", "%s" % failed)
+        attackOutPut(stepOne, "info", f"{failed}")
 # EOF
 
 """
@@ -526,9 +509,7 @@ def printResults(successfulattacks=[], url=''):
 """
 def checkArgs(value):
     value = int(value)
-    if value >= 0 and value <= 1:
-        return True
-    return False
+    return value >= 0 and value <= 1
 # EOF
 
 """
@@ -543,7 +524,7 @@ def checkArgOne(value):
 # EOF
 
 def getTimeStamp():
-    return '%s' % datetime.now().strftime('%Y.%m.%d.%H.%M.%S')
+    return f"{datetime.now().strftime('%Y.%m.%d.%H.%M.%S')}"
 
 def killPid(ppid=0):
     try:
@@ -553,7 +534,12 @@ def killPid(ppid=0):
         pass
 
 def getServerMalwareList(fp, targetpage):
-    attackOutPut(stepThree, "step", "Attempting to read list of files that can be downloaded from %s" % targetpage)
+    attackOutPut(
+        stepThree,
+        "step",
+        f"Attempting to read list of files that can be downloaded from {targetpage}",
+    )
+
 
     type_ignores = ['ICO', 'DIR']
     targfiles = []
@@ -571,11 +557,8 @@ def getServerMalwareList(fp, targetpage):
 def clean_up_tor():
     tor_pid_file = "tordata/tor/tor500.pid"
     if os.path.isfile(tor_pid_file):
-        # get pid and kill it
-        fo = open(tor_pid_file, "r")
-        tpid = int(fo.read())
-        # close opened file
-        fo.close()
+        with open(tor_pid_file, "r") as fo:
+            tpid = int(fo.read())
         killPid(ppid=tpid)
 
 def is_target_up(fp=''):
@@ -583,10 +566,7 @@ def is_target_up(fp=''):
     request = urllib2.Request(vars.getUrl())
     response = fp.open(request)
     resp = str(response.code)
-    if resp:
-        return True
-    else:
-        return False
+    return bool(resp)
 
 def normalizeVectorList(dir_path):
     vectorList = []

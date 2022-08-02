@@ -130,12 +130,11 @@ class TableCell (object):
         self.valign  = valign
         self.style   = style
         self.attribs = attribs
-        if attribs==None:
+        if attribs is None:
             self.attribs = {}
 
     def __str__(self):
         """return the HTML code for the table cell as a string"""
-        attribs_str = ""
         if self.bgcolor: self.attribs['bgcolor'] = self.bgcolor
         if self.width:   self.attribs['width']   = self.width
         if self.align:   self.attribs['align']   = self.align
@@ -143,13 +142,11 @@ class TableCell (object):
         if self.charoff: self.attribs['charoff'] = self.charoff
         if self.valign:  self.attribs['valign']  = self.valign
         if self.style:   self.attribs['style']   = self.style
-        for attr in self.attribs:
-            attribs_str += ' %s="%s"' % (attr, self.attribs[attr])
-        if self.text:
-            text = str(self.text)
-        else:
-            # An empty cell should at least contain a non-breaking space
-            text = '&nbsp;'
+        attribs_str = "".join(
+            ' %s="%s"' % (attr, self.attribs[attr]) for attr in self.attribs
+        )
+
+        text = str(self.text) if self.text else '&nbsp;'
         if self.header:
             return '  <TH%s>%s</TH>\n' % (attribs_str, text)
         else:
@@ -185,31 +182,32 @@ class TableRow (object):
         self.col_charoff = col_charoff
         self.col_styles  = col_styles
         self.attribs     = attribs
-        if attribs==None:
+        if attribs is None:
             self.attribs = {}
 
     def __str__(self):
         """return the HTML code for the table row as a string"""
-        attribs_str = ""
         if self.bgcolor: self.attribs['bgcolor'] = self.bgcolor
-        for attr in self.attribs:
-            attribs_str += ' %s="%s"' % (attr, self.attribs[attr])
+        attribs_str = "".join(
+            ' %s="%s"' % (attr, self.attribs[attr]) for attr in self.attribs
+        )
+
         result = ' <TR%s>\n' % attribs_str
         for cell in self.cells:
             col = self.cells.index(cell)    # cell column index
             if not isinstance(cell, TableCell):
                 cell = TableCell(cell, header=self.header)
             # apply column alignment if specified:
-            if self.col_align and cell.align==None:
+            if self.col_align and cell.align is None:
                 cell.align = self.col_align[col]
-            if self.col_char and cell.char==None:
+            if self.col_char and cell.char is None:
                 cell.char = self.col_char[col]
-            if self.col_charoff and cell.charoff==None:
+            if self.col_charoff and cell.charoff is None:
                 cell.charoff = self.col_charoff[col]
-            if self.col_valign and cell.valign==None:
+            if self.col_valign and cell.valign is None:
                 cell.valign = self.col_valign[col]
             # apply column style if specified:
-            if self.col_styles and cell.style==None:
+            if self.col_styles and cell.style is None:
                 cell.style = self.col_styles[col]
             result += str(cell)
         result += ' </TR>\n'
@@ -247,7 +245,7 @@ class Table (object):
         self.border = border
         self.style = style
         # style for thin borders by default
-        if style == None: self.style = TABLE_STYLE_THINBORDER
+        if style is None: self.style = TABLE_STYLE_THINBORDER
         self.width       = width
         self.cellspacing = cellspacing
         self.cellpadding = cellpadding
@@ -265,14 +263,15 @@ class Table (object):
 
     def __str__(self):
         """return the HTML code for the table as a string"""
-        attribs_str = ""
         if self.border: self.attribs['border'] = self.border
         if self.style:  self.attribs['style'] = self.style
         if self.width:  self.attribs['width'] = self.width
         if self.cellspacing:  self.attribs['cellspacing'] = self.cellspacing
         if self.cellpadding:  self.attribs['cellpadding'] = self.cellpadding
-        for attr in self.attribs:
-            attribs_str += ' %s="%s"' % (attr, self.attribs[attr])
+        attribs_str = "".join(
+            ' %s="%s"' % (attr, self.attribs[attr]) for attr in self.attribs
+        )
+
         result = '<TABLE%s>\n' % attribs_str
         # insert column tags and attributes if specified:
         if self.col_width:
@@ -305,10 +304,12 @@ class Table (object):
 ##            result += '<COL%s>\n' % col
         # First insert a header row if specified:
         if self.header_row:
-            if not isinstance(self.header_row, TableRow):
-                result += str(TableRow(self.header_row, header=True))
-            else:
-                result += str(self.header_row)
+            result += (
+                str(self.header_row)
+                if isinstance(self.header_row, TableRow)
+                else str(TableRow(self.header_row, header=True))
+            )
+
         # Then all data rows:
         for row in self.rows:
             if not isinstance(row, TableRow):
@@ -347,25 +348,19 @@ class List (object):
 
     def __init__(self, lines=None, ordered=False, start=None, attribs=None):
         """List constructor"""
-        if lines:
-            self.lines = lines
-        else:
-            self.lines = []
+        self.lines = lines or []
         self.ordered = ordered
         self.start = start
-        if attribs:
-            self.attribs = attribs
-        else:
-            self.attribs = {}
+        self.attribs = attribs or {}
 
     def __str__(self):
         """return the HTML code for the list as a string"""
-        attribs_str = ""
         if self.start:  self.attribs['start'] = self.start
-        for attr in self.attribs:
-            attribs_str += ' %s="%s"' % (attr, self.attribs[attr])
-        if self.ordered: tag = 'OL'
-        else:            tag = 'UL'
+        attribs_str = "".join(
+            ' %s="%s"' % (attr, self.attribs[attr]) for attr in self.attribs
+        )
+
+        tag = 'OL' if self.ordered else 'UL'
         result = '<%s%s>\n' % (tag, attribs_str)
         for line in self.lines:
             result += ' <LI>%s\n' % str(line)
